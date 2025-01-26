@@ -1,0 +1,9 @@
+python-dotenv
+requests
+pandas
+numpy
+scikit-learn
+torch
+transformers
+sentence-transformers
+faiss-cpu
