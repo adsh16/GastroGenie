@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GastroGenie - Your Culinary AI Assistant</title>
+    <link rel="icon" type="image/png" href="https://www.foodoscope.com/static/media/logo.729a9d4d1d20e9d2fdc9.png">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/chat.css">
+
+</head>
+<body>
+    <label class="toggle" for="switch">
+        <input id="switch" class="input" type="checkbox" onclick="toggleTheme()">
+        <div class="icon icon--moon">
+            <svg height="32" width="32" fill="currentColor" viewBox="0 0 24 24">
+                <path clip-rule="evenodd" d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 003.463-.69.75.75 0 01.981.98 10.503 10.503 0 01-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 01.818.162z" fill-rule="evenodd"></path>
+            </svg>
+        </div>
+        <div class="icon icon--sun">
+            <svg height="32" width="32" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z"></path>
+            </svg>
+        </div>
+    </label>
+    
+    <div class="container">
+        <header>
+            <div class="logo-container">
+                <img src="https://www.foodoscope.com/static/media/logo.729a9d4d1d20e9d2fdc9.png" alt="GastroGenie Logo" class="logo">
+                <h1>GastroGenie</h1>
+            </div>
+            <h2>Your AI-Powered Culinary Companion</h2>
+        </header>
+
+        <div id="chat-container">
+            <div id="chatbox">
+                <div class="welcome-message">
+                    <h3>👨‍🍳 How can I help you cook today?</h3>
+                    <p>Ask me about any recipe, ingredient substitutions, cooking techniques, or dietary restrictions.</p>
+                    <div class="suggestions">
+                        <div class="suggestion-chip">Quick dinner ideas with chicken</div>
+                        <div class="suggestion-chip">Tea</div>
+                        <div class="suggestion-chip">Vegetarian salad</div>
+                        <div class="suggestion-chip">Healthy meal prep ideas</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="input-container">
+                <input type="text" id="query" placeholder="What would you like to cook today? (e.g., 'high protein Indian drink under 10 minutes')" autocomplete="off">
+                <button onclick="sendMessage()">
+                    <span>Send</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <footer>
+        &copy; 2025 GastroGenie | Your AI-Powered Culinary Companion
+    </footer>
+
+    <script src="/static/chat.js"></script>
+    
+</body>
+</html>
