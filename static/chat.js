@@ -97,39 +97,52 @@ function sendMessage() {
         document.querySelectorAll('.typing').forEach(el => el.remove());
 
         data.forEach(recipe => {
-            const imgTag = recipe.img_url ? 
-                `<img src="${recipe.img_url}" alt="${recipe.title}" class="recipe-image">` : '';
-            
-            const nutritionInfo = `
-                <div class="nutrition-facts">
-                    ${recipe.Time ? `<div class="fact-item">⏱ ${recipe.Time}</div>` : ''}
-                    ${recipe.Calories ? `<div class="fact-item">🔥 ${recipe.Calories} Calories</div>` : ''}
-                    ${recipe.Protein ? `<div class="fact-item">💪 ${recipe.Protein}g Protein</div>` : ''}
-                </div>
-            `;
-
-            const youtubeButton = recipe.youtube_video ? `
-                <a href="${recipe.youtube_video}" class="youtube-link" target="_blank">
-                    ▶️ Watch Tutorial
-                </a>
-            ` : '';
-
-            chatbox.innerHTML += `
-                <div class="message bot-message">
-                    <div class="recipe-card">
-                        <h3>${recipe.title}</h3>
-                        ${imgTag}
-                        ${nutritionInfo}
-                        <p>${recipe.description}</p>
-                        <div class="action-buttons">
-                            <a href="${recipe.url}" class="view-recipe" target="_blank">
-                                📖 View Full Recipe
-                            </a>
-                            ${youtubeButton}
+            if (recipe.is_llm_card) {
+                // Render LLM response as a special card
+                chatbox.innerHTML += `
+                    <div class="message bot-message">
+                        <div class="recipe-card llm-card">
+                            <h3>${recipe.title}</h3>
+                            <p>${recipe.description}</p>
                         </div>
                     </div>
-                </div>
-            `;
+                `;
+            } else {
+                // Your existing recipe card rendering code
+                const imgTag = recipe.img_url ? 
+                    `<img src="${recipe.img_url}" alt="${recipe.title}" class="recipe-image">` : '';
+                
+                const nutritionInfo = `
+                    <div class="nutrition-facts">
+                        ${recipe.Time ? `<div class="fact-item">⏱ ${recipe.Time}</div>` : ''}
+                        ${recipe.Calories ? `<div class="fact-item">🔥 ${recipe.Calories} Calories</div>` : ''}
+                        ${recipe.Protein ? `<div class="fact-item">💪 ${recipe.Protein}g Protein</div>` : ''}
+                    </div>
+                `;
+        
+                const youtubeButton = recipe.youtube_video ? `
+                    <a href="${recipe.youtube_video}" class="youtube-link" target="_blank">
+                        ▶️ Watch Tutorial
+                    </a>
+                ` : '';
+        
+                chatbox.innerHTML += `
+                    <div class="message bot-message">
+                        <div class="recipe-card">
+                            <h3>${recipe.title}</h3>
+                            ${imgTag}
+                            ${nutritionInfo}
+                            <p>${recipe.description}</p>
+                            <div class="action-buttons">
+                                <a href="${recipe.url}" class="view-recipe" target="_blank">
+                                    📖 View Full Recipe
+                                </a>
+                                ${youtubeButton}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
         });
         const lastUserMessage = document.querySelector(".user-message:last-of-type");
         if (lastUserMessage) {
