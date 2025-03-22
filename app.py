@@ -9,8 +9,12 @@ import numpy as np
 import pickle
 import pandas as pd
 import re
+from transformers import pipeline
 
 app = Flask(__name__)
+
+# After loading your other models
+llm = pipeline("text-generation", model="TinyLlama/TinyLlama-1.1B-Chat-v1.0", max_new_tokens=512)
 
 static_folder = os.path.join(os.path.dirname(__file__), 'static')
 with open(os.path.join(static_folder, "recipes_metadata.pkl"), "rb") as f:
@@ -25,6 +29,39 @@ def safe_float(value, default=0.0):
         return float(value)
     except:
         return default
+
+
+def generate_llm_response(query, recipe_results):
+    """Generate conversational response using LLM"""
+    
+    # Format recipe results for the LLM prompt
+    recipe_text = ""
+    for i, recipe in enumerate(recipe_results, 1):
+        recipe_text += f"""
+        Recipe {i}: {recipe['title']}
+        Description: {recipe['description']}
+        Time to prepare: {recipe.get('total_time', 'N/A')} minutes
+        Calories: {recipe.get('Calories', 'N/A')}
+        Protein: {recipe.get('Protein', 'N/A')}g
+        Cuisine: {recipe.get('Sub_region', 'N/A')}
+        """
+
+    # Create the prompt for the LLM
+    prompt = f"""
+    You are GastroGenie, a culinary assistant. The user asked: {query}
+    Based on this query, we found these recipes:
+    {recipe_text}
+
+    Provide a brief, helpful explanation about these recipes in 2-3 sentences.
+    """
+
+    # Generate response from LLM
+    response = llm(prompt)[0]['generated_text']
+    
+    # Extract just the assistant's response (removing the prompt)
+    assistant_response = response.split("sentences.")[-1].strip()
+    
+    return assistant_response
 
 def search_recipe(query, k=3, top_n=50):
     """Search for recipes using FAISS and re-rank using Cross-Encoder."""
@@ -72,8 +109,24 @@ def chat():
     if request.method == 'POST':
         data = request.get_json()
         query = data.get("query", "")
-        results = search_recipe(query)
-        return jsonify(results)
+        
+        # Get recipe recommendations
+        recipe_results = search_recipe(query)
+        
+        # Generate LLM response
+        llm_text = generate_llm_response(query, recipe_results)
+        
+        # Create a special "recipe" object for the LLM response that will render as a card
+        llm_card = {
+            "title": "GastroGenie's Recommendation",
+            "description": llm_text,
+            "is_llm_card": True  # Special flag we'll use for styling
+        }
+        
+        # Add the LLM card to the beginning of results
+        response_data = [llm_card] + recipe_results
+        
+        return jsonify(response_data)
     return render_template('chat.html')
 
 if __name__ == '__main__':

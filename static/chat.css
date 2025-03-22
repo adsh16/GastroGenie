@@ -568,3 +568,13 @@ footer {
         justify-content: center;
     }
 }
+
+.llm-card {
+    background: linear-gradient(135deg, #f5f7fa 0%, #e9edf2 100%);
+    border-left: 4px solid #4a90e2;
+}
+
+.dark .llm-card {
+    background: linear-gradient(135deg, #2a2d3a 0%, #1f2126 100%);
+    border-left: 4px solid #3b82f6;
+}
