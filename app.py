@@ -11,10 +11,17 @@ import pandas as pd
 import re
 from transformers import pipeline
 
-app = Flask(__name__)
+from flask import Flask, request, jsonify, send_from_directory
+import os  # This is needed for the os.path.exists check
+from flask_cors import CORS
+
+app = Flask(__name__, static_folder='gastrogenie-client/build', static_url_path='/')
+CORS(app)
 
 # After loading your other models
-llm = pipeline("text-generation", model="TinyLlama/TinyLlama-1.1B-Chat-v1.0", max_new_tokens=512)
+llm = pipeline("text-generation", model="TinyLlama/TinyLlama-1.1B-Chat-v1.0", 
+               torch_dtype="auto", max_new_tokens=512)
+
 
 static_folder = os.path.join(os.path.dirname(__file__), 'static')
 with open(os.path.join(static_folder, "recipes_metadata.pkl"), "rb") as f:
@@ -104,30 +111,45 @@ def search_recipe(query, k=3, top_n=50):
 
     return results
 
-@app.route('/', methods=['GET', 'POST'])
-def chat():
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
+    else:
+        return send_from_directory(app.static_folder, 'index.html')
+
+
+@app.route('/api/chat', methods=['POST'])
+def chat_api():
     if request.method == 'POST':
         data = request.get_json()
         query = data.get("query", "")
+        use_llm = data.get("use_llm", False)  # Get the toggle state
         
         # Get recipe recommendations
         recipe_results = search_recipe(query)
         
-        # Generate LLM response
-        llm_text = generate_llm_response(query, recipe_results)
-        
-        # Create a special "recipe" object for the LLM response that will render as a card
-        llm_card = {
-            "title": "GastroGenie's Recommendation",
-            "description": llm_text,
-            "is_llm_card": True  # Special flag we'll use for styling
-        }
-        
-        # Add the LLM card to the beginning of results
-        response_data = [llm_card] + recipe_results
+        if use_llm:
+            # Generate LLM response when toggle is on
+            llm_text = generate_llm_response(query, recipe_results)
+            
+            # Create a special "recipe" object for the LLM response
+            llm_card = {
+                "title": "GastroGenie's Recommendation",
+                "description": llm_text,
+                "is_llm_card": True
+            }
+            
+            # Add the LLM card to the beginning of results
+            response_data = [llm_card] + recipe_results
+        else:
+            # Return only recipe results when toggle is off
+            response_data = recipe_results
         
         return jsonify(response_data)
-    return render_template('chat.html')
 
+
+    
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True, host='0.0.0.0')
