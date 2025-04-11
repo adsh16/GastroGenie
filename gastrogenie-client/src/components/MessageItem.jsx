@@ -1,7 +1,5 @@
-
 import React from 'react';
-import { Box, Avatar, Typography, Divider } from '@mui/material';
-import RecipeCard from './RecipeCard';
+import { Box, Avatar, Typography, Paper } from '@mui/material';
 import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu';
 import PersonIcon from '@mui/icons-material/Person';
 
@@ -45,7 +43,23 @@ function MessageItem({ message, darkMode }) {
           {isUser ? (
             <Typography variant="body1">{message.content}</Typography>
           ) : (
-            <RecipeCard recipe={message.content} darkMode={darkMode} />
+            <Paper
+              elevation={0}
+              sx={{
+                overflow: 'hidden',
+                borderRadius: 2,
+                mb: 1,
+                border: '1px solid',
+                borderColor: 'divider',
+                ...(message.content.is_llm_card && {
+                  bgcolor: darkMode ? 'rgba(66, 165, 245, 0.1)' : 'rgba(30, 136, 229, 0.05)',
+                  borderLeft: '3px solid',
+                  borderColor: 'primary.main',
+                })
+              }}
+            >
+              {/* Content rendering would go here */}
+            </Paper>
           )}
         </Box>
       </Box>
