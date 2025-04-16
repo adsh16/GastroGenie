@@ -95,21 +95,38 @@ function App() {
   const [authMode, setAuthMode] = useState("login"); // 'login' or 'register'
   const [useLlm, setUseLlm] = useState(false); // default is false for AI explanations
   const [isNewChat, setIsNewChat] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("tiny_llama"); // Default model
+  const [availableModels, setAvailableModels] = useState([]);
 
   // Load user preferences from localStorage
   useEffect(() => {
     const savedDarkMode = localStorage.getItem("darkMode") === "true";
     const savedTheme = parseInt(localStorage.getItem("themeIndex") || "0");
+    const savedModel = localStorage.getItem("selectedModel") || "tiny_llama";
     
     setDarkMode(savedDarkMode);
     setCurrentTheme(isNaN(savedTheme) ? 0 : savedTheme);
+    setSelectedModel(savedModel);
   }, []);
 
   // Save preferences when they change
   useEffect(() => {
     localStorage.setItem("darkMode", darkMode.toString());
     localStorage.setItem("themeIndex", currentTheme.toString());
-  }, [darkMode, currentTheme]);
+    localStorage.setItem("selectedModel", selectedModel);
+  }, [darkMode, currentTheme, selectedModel]);
+
+  // Fetch available models from the backend
+  useEffect(() => {
+    fetch('/api/models')
+      .then(response => response.json())
+      .then(data => {
+        if (data.models && data.models.length > 0) {
+          setAvailableModels(data.models);
+        }
+      })
+      .catch(error => console.error('Error fetching models:', error));
+  }, []);
 
   // Handle theme change
   const handleThemeChange = (themeIndex) => {
@@ -251,6 +268,11 @@ function App() {
     setUseLlm(!useLlm);
   };
 
+  const handleModelChange = (modelId) => {
+    console.log("Changing model to:", modelId);
+    setSelectedModel(modelId);
+  };
+
   if (loading) {
     return (
       <Box
@@ -284,13 +306,16 @@ function App() {
             onNewChat={handleNewChat}
             currentUser={user}
             currentChatId={currentChatId}
-            // New props for the controls
+            // Controls
             darkMode={darkMode}
             toggleDarkMode={toggleDarkMode}
             currentTheme={currentTheme}
             onThemeChange={handleThemeChange}
             useLlm={useLlm}
             onToggleLlm={handleToggleLlm}
+            selectedModel={selectedModel}
+            onModelChange={handleModelChange}
+            availableModels={availableModels}
           />
           <ChatArea
             darkMode={darkMode}
@@ -300,6 +325,7 @@ function App() {
             onChatCreated={handleChatCreated}
             onToggleLlm={handleToggleLlm}
             currentUser={user}
+            selectedModel={selectedModel}
           />
         </Box>
       )}

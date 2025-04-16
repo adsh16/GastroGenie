@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Box,
   List,
@@ -13,6 +13,10 @@ import {
   Tooltip,
   Switch,
   FormControlLabel,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from "@mui/material";
 import LogoutIcon from "@mui/icons-material/Logout";
 import AddIcon from "@mui/icons-material/Add";
@@ -20,6 +24,7 @@ import DarkModeIcon from "@mui/icons-material/DarkMode";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import PaletteIcon from "@mui/icons-material/Palette";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
+import SpeedIcon from "@mui/icons-material/Speed";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
 
@@ -35,7 +40,12 @@ function ChatSidebar({
   onThemeChange,
   useLlm,
   onToggleLlm,
+  selectedModel,
+  onModelChange,
+  availableModels = [],
 }) {
+  const [showThemeSelector, setShowThemeSelector] = useState(false);
+
   const handleSignOut = async () => {
     try {
       await signOut(auth);
@@ -260,7 +270,32 @@ function ChatSidebar({
         Recent Conversations
       </Typography>
 
-      <List sx={{ flex: 1, overflow: "auto" }}>
+      <List sx={{ 
+        flex: 1, 
+        overflow: "auto",
+        "&::-webkit-scrollbar": {
+          width: "8px",
+          background: "transparent"
+        },
+        "&::-webkit-scrollbar-thumb": {
+          background: "transparent",
+          borderRadius: "8px",
+          transition: 'background 0.3s ease',
+        },
+        "&:hover::-webkit-scrollbar-thumb": {
+          background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)',
+        },
+        "&:hover::-webkit-scrollbar-thumb:hover": {
+          background: darkMode ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.25)',
+        },
+        scrollbarWidth: "thin",
+        scrollbarColor: "transparent transparent",
+        "&:hover": {
+          scrollbarColor: darkMode ? 
+            'rgba(255,255,255,0.15) transparent' : 
+            'rgba(0,0,0,0.15) transparent',
+        }
+      }}>
         {chatHistory.length > 0 ? (
           chatHistory.map((chat) => (
             <ListItem key={chat.id} disablePadding>
@@ -334,7 +369,7 @@ function ChatSidebar({
       <Box
         sx={{
           mt: "auto",
-          height: { xs: "120px", md: "124px" }, // Total height - includes both sections
+          height: { xs: "120px", md: "130px" }, // Original height to match text area
           borderTop: "1px solid",
           borderColor: "divider",
           display: "flex",
@@ -366,6 +401,71 @@ function ChatSidebar({
           </Box>
           <Switch checked={useLlm} onChange={onToggleLlm} size="small" />
         </Box>
+
+        {/* Model Selection - only show when AI is enabled */}
+        {useLlm && (
+          <Tooltip
+            title="Advanced models provide better quality recommendations but may take longer to respond."
+            placement="right"
+          >
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                px: 2,
+                pb: 1,
+              }}
+            >
+              <Box sx={{ 
+                display: "flex", 
+                flexDirection: { xs: "column", md: "row" },
+                alignItems: { xs: "center", md: "center" },
+                gap: 1, 
+                width: "100%" 
+              }}>
+                <SpeedIcon
+                  fontSize="small"
+                  color="action"
+                  sx={{ display: "block" }}
+                />
+                <Typography
+                  variant="body2"
+                  sx={{ display: { xs: "none", md: "block" } }}
+                >
+                  Model:
+                </Typography>
+                <Box sx={{ 
+                  flexGrow: 1, 
+                  minWidth: { xs: "50px", md: "120px" },
+                  height: "100%" 
+                }}>
+                  <Select
+                    value={selectedModel}
+                    onChange={(e) => onModelChange(e.target.value)}
+                    size="small"
+                    variant="outlined"
+                    fullWidth
+                    sx={{
+                      fontSize: "0.8rem",
+                      ".MuiSelect-select": {
+                        py: 0.5,
+                        px: { xs: 0.5, md: 1 }
+                      }
+                    }}
+                  >
+                    {availableModels.map((model) => (
+                      <MenuItem key={model.id} value={model.id}>
+                        <Typography noWrap variant="body2">
+                          {model.name}
+                        </Typography>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </Box>
+              </Box>
+            </Box>
+          </Tooltip>
+        )}
 
         {/* Theme Controls */}
         <Box
