@@ -46,12 +46,33 @@ yarn-error.log*
 
 # Project specific
 /static/models/
+/static/*.index
+/static/*.pkl
+/model/*.index
+/model/*.pkl
+/model/*.csv
+/model/*.json
 *.index
 *.bin
 *.h5
 *.pkl
 *.pt
 *.onnx
+*.csv
+*.json
+*.npy
+*.npz
+*.gz
+*.zip
+*.tar
+*.tfrecord
+*.hdf5
+*.joblib
+*.pickle
+*.sav
+# Include example or sample data files if needed
+!sample_data/*.csv
+!sample_data/*.json
 
 # OS specific
 .DS_Store
