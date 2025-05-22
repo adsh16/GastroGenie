@@ -11,10 +11,24 @@ import pandas as pd
 import re
 from transformers import pipeline
 import json
+import time
+import logging
 
 from flask import Flask, request, jsonify, send_from_directory
 import os  # This is needed for the os.path.exists check
 from flask_cors import CORS
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger('GastroGenie')
+
+# Create console handler for real-time progress tracking
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+logger.addHandler(console_handler)
 
 app = Flask(__name__, static_folder='gastrogenie-client/build', static_url_path='/')
 CORS(app)
@@ -40,10 +54,10 @@ models_cache = {}
 
 def get_model(model_key="tiny_llama"):
     """Lazy-load model to save memory when not in use"""
-    if model_key not in MODELS:
+    if (model_key not in MODELS):
         model_key = "tiny_llama"  # Fallback to default model
     
-    if model_key not in models_cache:
+    if (model_key not in models_cache):
         model_config = MODELS[model_key]
         print(f"Loading model: {model_config['display_name']}")
         models_cache[model_key] = pipeline(
@@ -78,7 +92,11 @@ def extract_search_tokens(query, model_key="tiny_llama"):
     Use LLM to extract relevant search tokens and parameters from the user query
     Returns a structured representation of the query for more effective search
     """
+    logger.info(f"Starting search token extraction for query: '{query}'")
+    start_time = time.time()
+    
     current_llm = get_model(model_key)
+    logger.info(f"Using model: {MODELS[model_key]['display_name']}")
     
     prompt = f"""
     You are an AI assistant helping to extract relevant search tokens from a recipe query.
@@ -102,40 +120,58 @@ def extract_search_tokens(query, model_key="tiny_llama"):
         "meal_type": "",
         "time_constraint": "",
         "occasion": "",
-        "cooking_method": "",
-        "original_query": ""
+        "cooking_method": ""
     }}
     
     Give only the JSON object, no other text.
     """
     
     try:
-        response = current_llm(prompt)[0]['generated_text']
+        logger.info("Sending prompt to LLM for token extraction")
+        response = current_llm(prompt, max_new_tokens=150)[0]['generated_text']
+        logger.info("Received response from LLM")
         
-        # Try to extract the JSON object from the response
-        json_match = re.search(r'\{.*\}', response, re.DOTALL)
+        # Try to extract the JSON object from the response using a more robust approach
+        json_match = re.search(r'\{[\s\S]*?\}', response)
         if json_match:
             json_str = json_match.group(0)
-            parsed_data = json.loads(json_str)
             
-            # Add the original query
-            parsed_data['original_query'] = query
+            # Clean up the JSON string - remove newlines and extra spaces that might cause issues
+            json_str = re.sub(r',\s*}', '}', json_str)  # Remove trailing commas
+            json_str = re.sub(r',\s*]', ']', json_str)  # Remove trailing commas in arrays
             
-            return parsed_data
+            try:
+                # Try to parse the cleaned JSON
+                parsed_data = json.loads(json_str)
+                
+                # Add the original query
+                parsed_data['original_query'] = query
+                
+                elapsed = time.time() - start_time
+                logger.info(f"Successfully extracted search tokens in {elapsed:.2f} seconds")
+                return parsed_data
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to parse JSON: {e} - Trying fallback approach")
+                # If still can't parse, try a more aggressive cleanup
+                json_str = re.sub(r'[^\x00-\x7F]+', '', json_str)  # Remove non-ASCII chars
+                
+                try:
+                    parsed_data = json.loads(json_str)
+                    parsed_data['original_query'] = query
+                    elapsed = time.time() - start_time
+                    logger.info(f"Successfully extracted search tokens with fallback parsing in {elapsed:.2f} seconds")
+                    return parsed_data
+                except:
+                    logger.error("Fallback parsing failed as well")
+                    raise
         else:
-            # Fallback if no JSON is found
-            return {
-                "ingredients": [],
-                "cuisine": "",
-                "dietary": [],
-                "meal_type": "",
-                "time_constraint": "",
-                "occasion": "",
-                "cooking_method": "",
-                "original_query": query
-            }
+            logger.error("No valid JSON structure found in LLM response")
+            raise ValueError("Could not find JSON in LLM response")
+            
     except Exception as e:
-        print(f"Error extracting search tokens: {e}")
+        logger.error(f"Error extracting search tokens: {e}")
+        elapsed = time.time() - start_time
+        logger.info(f"Token extraction failed in {elapsed:.2f} seconds, using default structure")
         # Return default structure if parsing fails
         return {
             "ingredients": [],
@@ -143,7 +179,6 @@ def extract_search_tokens(query, model_key="tiny_llama"):
             "dietary": [],
             "meal_type": "",
             "time_constraint": "",
-            "occasion": "",
             "cooking_method": "",
             "original_query": query
         }
@@ -154,40 +189,43 @@ def generate_llm_response(query, recipe_candidates, model_key="tiny_llama"):
     Generate LLM response that selects the top 5 most relevant recipes
     from the candidates and explains why they're relevant to the user's query
     """
+    logger.info(f"Starting AI explanation generation for: '{query}'")
+    start_time = time.time()
+    
     current_llm = get_model(model_key)
+    logger.info(f"Using model: {MODELS[model_key]['display_name']} for explanation generation")
     
-    # Format all candidate recipes for the LLM prompt
+    # Format recipe candidates more efficiently - limit details to save tokens
     recipe_text = ""
+    logger.info(f"Processing {len(recipe_candidates)} recipe candidates")
     for i, recipe in enumerate(recipe_candidates, 1):
-        recipe_text += f"""
-        Recipe {i}: {recipe['title']}
-        Description: {recipe['description']}
-        Time to prepare: {recipe.get('Time', 'N/A')}
-        Calories: {recipe.get('Calories', 'N/A')}
-        Protein: {recipe.get('Protein', 'N/A')}g
-        Cuisine: {recipe.get('Sub_region', 'N/A')}
-        """
+        # Use a more concise format with only the most relevant information
+        recipe_text += f"Recipe {i}: {recipe['title']} - {recipe.get('Time', 'N/A')} min, {recipe.get('Sub_region', 'N/A')} cuisine\n"
 
-    # Create the prompt for the LLM to select top 5 recipes and provide reasoning
+    # Create a more efficient prompt
     prompt = f"""
-    You are GastroGenie, a culinary assistant. The user asked: "{query}"
+    User query: "{query}"
     
-    Based on this query, we found these potential recipes:
+    Candidate recipes:
     {recipe_text}
     
-    Task 1: Select the top 5 recipes that best match the user's query. List their numbers only, like this: "1,3,5,6,9"
-    
-    Task 2: Provide a brief explanation (2-3 sentences) about why these recipes are relevant to the user's query.
-    
-    Format your response as:
+    Select the top 5 recipes that best match the query. Provide recipe numbers and a brief explanation.
+    Format: 
     SELECTED_RECIPES: [list of numbers]
-    EXPLANATION: [your explanation]
+    EXPLANATION: [2-3 sentences on why these recipes are relevant]
     """
 
-    # Generate response from LLM
-    response = current_llm(prompt)[0]['generated_text']
+    # Generate response with timeout handling
+    try:
+        logger.info("Sending prompt to model for AI explanation")
+        response = current_llm(prompt, max_new_tokens=200)[0]['generated_text']
+        logger.info("Received AI explanation response")
+    except Exception as e:
+        logger.error(f"Error generating explanation: {e}")
+        response = f"SELECTED_RECIPES: 1,2,3,4,5\nEXPLANATION: Here are some recipes that match your query for {query}."
     
     # Parse the response to extract selected recipes and explanation
+    logger.info("Parsing AI response")
     selected_recipes_match = re.search(r'SELECTED_RECIPES:\s*\[?([0-9,\s]+)\]?', response, re.IGNORECASE)
     explanation_match = re.search(r'EXPLANATION:\s*(.*)', response, re.IGNORECASE | re.DOTALL)
     
@@ -200,22 +238,29 @@ def generate_llm_response(query, recipe_candidates, model_key="tiny_llama"):
         selected_str = selected_recipes_match.group(1).strip()
         try:
             # Parse the comma-separated indices and convert to 0-indexed
-            selected_indices = [int(idx.strip()) - 1 for idx in selected_str.split(',')]
+            selected_indices = [int(idx.strip()) - 1 for idx in selected_str.split(',') if idx.strip()]
             # Ensure we have valid indices (within range and take at most 5)
             selected_indices = [idx for idx in selected_indices if 0 <= idx < len(recipe_candidates)][:5]
-        except:
-            pass  # Use default indices if parsing fails
+            logger.info(f"Selected recipe indices: {selected_indices}")
+        except Exception as e:
+            logger.warning(f"Error parsing selected recipes: {e}")
+            # Use default indices if parsing fails
     
     # Extract explanation if found
     if explanation_match:
         explanation = explanation_match.group(1).strip()
+        logger.info("Successfully extracted explanation")
     
     # Ensure we have at least some recipes selected
     if not selected_indices:
+        logger.warning("No valid recipe indices found, using default")
         selected_indices = list(range(min(5, len(recipe_candidates))))
     
     # Select the recipes based on the indices
     selected_recipes = [recipe_candidates[idx] for idx in selected_indices if idx < len(recipe_candidates)]
+    
+    elapsed = time.time() - start_time
+    logger.info(f"AI explanation generated in {elapsed:.2f} seconds")
     
     return selected_recipes, explanation
 
@@ -225,8 +270,12 @@ def search_recipe(query, k=10, top_n=50, use_token_extraction=True, model_key="t
     Enhanced search for recipes using FAISS and re-rank using Cross-Encoder.
     Now with option to use LLM token extraction for better query understanding.
     """
+    logger.info(f"Starting recipe search for query: '{query}'")
+    start_time = time.time()
+    
     # Process the query with LLM to extract tokens if requested
     if use_token_extraction:
+        logger.info("Using LLM token extraction for query analysis")
         token_data = extract_search_tokens(query, model_key)
         
         # Build a more structured query from the extracted tokens
@@ -265,10 +314,12 @@ def search_recipe(query, k=10, top_n=50, use_token_extraction=True, model_key="t
         
         # Create enhanced query string
         enhanced_query = " | ".join(structured_parts)
+        logger.info(f"Created enhanced query: '{enhanced_query}'")
         
         # Use the enhanced query for embedding
         query_for_embedding = enhanced_query
     else:
+        logger.info("Using basic query processing (no LLM token extraction)")
         # Default behavior: process with regex as before
         protein_match = re.search(r'(\d+)\s*(g|grams?)\s+protein', query, re.I)
         protein_req = float(protein_match.group(1)) if protein_match else None
@@ -288,12 +339,24 @@ def search_recipe(query, k=10, top_n=50, use_token_extraction=True, model_key="t
         structured_parts.append(query)
         
         query_for_embedding = " | ".join(["Recipe search:"] + structured_parts)
+        logger.info(f"Created basic query: '{query_for_embedding}'")
 
     # Generate embedding and search with FAISS
+    logger.info("Generating query embedding")
+    t_embed_start = time.time()
     query_embedding = embed_model.encode([query_for_embedding], convert_to_numpy=True)
+    t_embed_end = time.time()
+    logger.info(f"Query embedding generated in {t_embed_end - t_embed_start:.2f} seconds")
+    
+    # Search with FAISS
+    logger.info(f"Searching FAISS index for top {top_n} candidates")
+    t_faiss_start = time.time()
     D, I = index.search(query_embedding, top_n)
+    t_faiss_end = time.time()
+    logger.info(f"FAISS search completed in {t_faiss_end - t_faiss_start:.2f} seconds")
 
     # Create candidate recipes with initial scores
+    logger.info("Preparing candidate recipes")
     candidates = []
     for idx, distance in zip(I[0], D[0]):
         recipe = df.iloc[idx].to_dict()
@@ -301,8 +364,12 @@ def search_recipe(query, k=10, top_n=50, use_token_extraction=True, model_key="t
         candidates.append((score, recipe))
 
     # Rerank with cross-encoder
+    logger.info("Reranking with Cross-Encoder")
+    t_cross_start = time.time()
     cross_encoder_inputs = [(query, c[1]["title"] + " | " + c[1]["description"]) for c in candidates]
     cross_scores = cross_encoder.predict(cross_encoder_inputs)
+    t_cross_end = time.time()
+    logger.info(f"Cross-Encoder reranking completed in {t_cross_end - t_cross_start:.2f} seconds")
 
     # Update scores with cross-encoder results
     for i in range(len(candidates)):
@@ -311,6 +378,9 @@ def search_recipe(query, k=10, top_n=50, use_token_extraction=True, model_key="t
     # Sort and return top k results
     candidates.sort(reverse=True, key=lambda x: x[0])
     results = [c[1] for c in candidates[:k]]
+    
+    elapsed = time.time() - start_time
+    logger.info(f"Recipe search completed in {elapsed:.2f} seconds, returning {len(results)} results")
 
     return results
 
