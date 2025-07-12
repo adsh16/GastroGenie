@@ -1,5 +1,11 @@
 # GastroGenie: AI-Powered Recipe Recommendation System
 
+---
+<img width="1280" height="707" alt="image" src="https://github.com/user-attachments/assets/124d7a5a-6ab6-485f-916a-63e9417a2e0b" />
+
+---
+
+
 ## 1. Introduction
 GastroGenie is an intelligent recipe recommendation system that leverages Natural Language Processing (NLP) and semantic search to provide users with relevant recipes based on specific criteria such as protein content, preparation time, and regional cuisine. The system processes a dataset of 532 recipes and employs a two-stage retrieval architecture combining vector search with cross-encoder re-ranking for improved accuracy.
 
